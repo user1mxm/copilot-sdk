@@ -69,29 +69,29 @@ import (
 //	}
 //	defer client.Stop()
 type Client struct {
-	options                ClientOptions
-	process                *exec.Cmd
-	client                 *jsonrpc2.Client
-	actualPort             int
-	actualHost             string
-	state                  ConnectionState
-	sessions               map[string]*Session
-	sessionsMux            sync.Mutex
-	isExternalServer           bool
+	options                   ClientOptions
+	process                   *exec.Cmd
+	client                    *jsonrpc2.Client
+	actualPort                int
+	actualHost                string
+	state                     ConnectionState
+	sessions                  map[string]*Session
+	sessionsMux               sync.Mutex
+	isExternalServer          bool
 	negotiatedProtocolVersion int
-	conn                   net.Conn // stores net.Conn for external TCP connections
-	useStdio               bool     // resolved value from options
-	autoStart              bool     // resolved value from options
-	autoRestart            bool     // resolved value from options
-	modelsCache            []ModelInfo
-	modelsCacheMux         sync.Mutex
-	lifecycleHandlers      []SessionLifecycleHandler
-	typedLifecycleHandlers map[SessionLifecycleEventType][]SessionLifecycleHandler
-	lifecycleHandlersMux   sync.Mutex
-	startStopMux           sync.RWMutex // protects process and state during start/[force]stop
-	processDone            chan struct{}
-	processErrorPtr        *error
-	osProcess              atomic.Pointer[os.Process]
+	conn                      net.Conn // stores net.Conn for external TCP connections
+	useStdio                  bool     // resolved value from options
+	autoStart                 bool     // resolved value from options
+	autoRestart               bool     // resolved value from options
+	modelsCache               []ModelInfo
+	modelsCacheMux            sync.Mutex
+	lifecycleHandlers         []SessionLifecycleHandler
+	typedLifecycleHandlers    map[SessionLifecycleEventType][]SessionLifecycleHandler
+	lifecycleHandlersMux      sync.Mutex
+	startStopMux              sync.RWMutex // protects process and state during start/[force]stop
+	processDone               chan struct{}
+	processErrorPtr           *error
+	osProcess                 atomic.Pointer[os.Process]
 
 	// RPC provides typed server-scoped RPC methods.
 	// This field is nil until the client is connected via Start().

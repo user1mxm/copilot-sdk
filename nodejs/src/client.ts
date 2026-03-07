@@ -1427,12 +1427,10 @@ export class CopilotClient {
         }
     }
 
-    private async handlePermissionRequested(
-        sessionId: string,
-        event: SessionEvent
-    ): Promise<void> {
-        const data = (event as unknown as { data: { requestId: string; permissionRequest: unknown } })
-            .data;
+    private async handlePermissionRequested(sessionId: string, event: SessionEvent): Promise<void> {
+        const data = (
+            event as unknown as { data: { requestId: string; permissionRequest: unknown } }
+        ).data;
         if (!data || !data.requestId || !data.permissionRequest) {
             return;
         }
