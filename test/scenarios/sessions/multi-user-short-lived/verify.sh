@@ -26,7 +26,7 @@ if [ -z "${COPILOT_CLI_PATH:-}" ]; then
   # Try to resolve from the TypeScript sample node_modules
   TS_DIR="$SCRIPT_DIR/typescript"
   if [ -d "$TS_DIR/node_modules/@github/copilot" ]; then
-    COPILOT_CLI_PATH="$(node -e "console.log(require.resolve('@github/copilot'))" 2>/dev/null || true)"
+    COPILOT_CLI_PATH="$(node --input-type=module -e "import{fileURLToPath}from'url';import{dirname,join}from'path';const u=import.meta.resolve('@github/copilot/sdk');console.log(join(dirname(dirname(fileURLToPath(u))),'index.js'));" 2>/dev/null || true)"
   fi
   # Fallback: check PATH
   if [ -z "${COPILOT_CLI_PATH:-}" ]; then

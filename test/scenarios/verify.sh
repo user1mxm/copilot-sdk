@@ -13,7 +13,19 @@ trap cleanup EXIT
 if [ -n "${COPILOT_CLI_PATH:-}" ]; then
   echo "Using CLI override: $COPILOT_CLI_PATH"
 else
-  echo "No COPILOT_CLI_PATH set — SDKs will use their bundled CLI."
+  # Auto-discover CLI from the Node SDK's bundled @github/copilot package
+  DISCOVERED_CLI=$(node --input-type=module -e "
+    import { fileURLToPath } from 'url';
+    import { dirname, join } from 'path';
+    const sdkUrl = import.meta.resolve('@github/copilot/sdk');
+    console.log(join(dirname(dirname(fileURLToPath(sdkUrl))), 'index.js'));
+  " 2>/dev/null || true)
+  if [ -n "$DISCOVERED_CLI" ] && [ -f "$DISCOVERED_CLI" ]; then
+    export COPILOT_CLI_PATH="$DISCOVERED_CLI"
+    echo "Auto-discovered CLI: $COPILOT_CLI_PATH"
+  else
+    echo "⚠️  Could not auto-discover CLI — SDKs will attempt bundled CLI resolution."
+  fi
 fi
 
 # ── Auth ────────────────────────────────────────────────────────────
