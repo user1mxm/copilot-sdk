@@ -6,6 +6,7 @@ This guide covers common issues and debugging techniques for the Copilot SDK acr
 
 - [Enable Debug Logging](#enable-debug-logging)
 - [Common Issues](#common-issues)
+  - [Silent Model Fallback / Wrong Model Being Used](#silent-model-fallback--wrong-model-being-used)
 - [MCP Server Debugging](#mcp-server-debugging)
 - [Connection Issues](#connection-issues)
 - [Tool Execution Issues](#tool-execution-issues)
@@ -311,6 +312,229 @@ var client = new CopilotClient(new CopilotClientOptions
      port: 0,  // Use random available port
    });
    ```
+
+### Silent Model Fallback / Wrong Model Being Used
+
+> See [GitHub Issue #250](https://github.com/github/copilot-sdk/issues/250)
+
+**Symptoms:** You specify a model in your session configuration, but the session uses a
+different model (typically `claude-sonnet-4.6`) without raising an error. This happens when the
+requested model ID is invalid, misspelled, or not available for your account.
+
+**Cause:** The SDK does not validate model IDs client-side — the name is forwarded directly
+to the Copilot CLI server. When the server determines that the requested model is unavailable,
+it silently falls back to the first available default model rather than returning an error.
+The fallback order is `claude-sonnet-4.6` → `claude-sonnet-4.5` → `claude-haiku-4.5` → etc.
+Warnings are logged server-side but are not surfaced to the SDK as errors.
+
+> **Note:** There is currently no SDK-level option to disable automatic model fallback. This
+> is tracked in [#250](https://github.com/github/copilot-sdk/issues/250).
+
+**Solution:**
+
+1. **Validate the model before creating a session** by calling `listModels()` to check
+   available models:
+
+   <details open>
+   <summary><strong>Node.js / TypeScript</strong></summary>
+
+   ```typescript
+   const models = await client.listModels();
+   const desiredModel = "gpt-5.4";
+
+   const isAvailable = models.some((m) => m.id === desiredModel);
+   if (!isAvailable) {
+     throw new Error(
+       `Model "${desiredModel}" is not available. Available: ${models.map((m) => m.id).join(", ")}`,
+     );
+   }
+
+   const session = await client.createSession({
+     model: desiredModel,
+     // ...
+   });
+   ```
+   </details>
+
+   <details>
+   <summary><strong>Python</strong></summary>
+
+   ```python
+   models = await client.list_models()
+   desired_model = "gpt-5.4"
+
+   available_ids = [m.id for m in models]
+   if desired_model not in available_ids:
+       raise ValueError(
+           f'Model "{desired_model}" is not available. '
+           f'Available: {", ".join(available_ids)}'
+       )
+
+   session = await client.create_session({"model": desired_model})
+   ```
+   </details>
+
+   <details>
+   <summary><strong>Go</strong></summary>
+
+   <!-- docs-validate: hidden -->
+   ```go
+   package main
+
+   import (
+   	"context"
+   	"fmt"
+   	"strings"
+
+   	copilot "github.com/github/copilot-sdk/go"
+   )
+
+   func main() {
+   	client := copilot.NewClient(nil)
+   	ctx := context.Background()
+   	_ = client.Start(ctx)
+
+   	models, _ := client.ListModels(ctx)
+   	desiredModel := "gpt-5.4"
+
+   	found := false
+   	var ids []string
+   	for _, m := range models {
+   		ids = append(ids, m.ID)
+   		if m.ID == desiredModel {
+   			found = true
+   		}
+   	}
+   	if !found {
+   		panic(fmt.Sprintf("Model %q is not available. Available: %s",
+   			desiredModel, strings.Join(ids, ", ")))
+   	}
+   }
+   ```
+   <!-- /docs-validate: hidden -->
+
+   ```go
+   models, err := client.ListModels(ctx)
+   desiredModel := "gpt-5.4"
+
+   found := false
+   var ids []string
+   for _, m := range models {
+       ids = append(ids, m.ID)
+       if m.ID == desiredModel {
+           found = true
+       }
+   }
+   if !found {
+       panic(fmt.Sprintf("Model %q is not available. Available: %s",
+           desiredModel, strings.Join(ids, ", ")))
+   }
+   ```
+   </details>
+
+   <details>
+   <summary><strong>.NET</strong></summary>
+
+   <!-- docs-validate: skip -->
+
+   ```csharp
+   var models = await client.ListModelsAsync();
+   var desiredModel = "gpt-5.4";
+
+   if (!models.Any(m => m.Id == desiredModel))
+   {
+       var available = string.Join(", ", models.Select(m => m.Id));
+       throw new InvalidOperationException(
+           $"Model \"{desiredModel}\" is not available. Available: {available}");
+   }
+
+   var session = await client.CreateSessionAsync(new SessionConfig
+   {
+       Model = desiredModel,
+   });
+   ```
+   </details>
+
+2. **Detect fallback at runtime** by comparing the model reported in `assistant.usage` events
+   against the model you requested:
+
+   <details open>
+   <summary><strong>Node.js / TypeScript</strong></summary>
+
+   ```typescript
+   const requestedModel = "gpt-5.4";
+   const session = await client.createSession({ model: requestedModel });
+
+   session.on("assistant.usage", (event) => {
+     if (event.data.model !== requestedModel) {
+       console.warn(
+         `Model fallback detected: requested "${requestedModel}", ` +
+           `got "${event.data.model}"`,
+       );
+     }
+   });
+   ```
+   </details>
+
+   <details>
+   <summary><strong>Python</strong></summary>
+
+   ```python
+   requested_model = "gpt-5.4"
+   session = await client.create_session({"model": requested_model})
+
+   @session.on("assistant.usage")
+   def on_usage(event):
+       if event.data.get("model") != requested_model:
+           print(
+               f'Model fallback detected: requested "{requested_model}", '
+               f'got "{event.data["model"]}"'
+           )
+   ```
+   </details>
+
+3. **Query the active model** after session creation to confirm what model is in use:
+
+   <details open>
+   <summary><strong>Node.js / TypeScript</strong></summary>
+
+   ```typescript
+   const result = await session.rpc.model.getCurrent();
+   console.log("Active model:", result.modelId);
+   ```
+   </details>
+
+   <details>
+   <summary><strong>Python</strong></summary>
+
+   ```python
+   result = await session.rpc.model.get_current()
+   print("Active model:", result.get("modelId"))
+   ```
+   </details>
+
+   <details>
+   <summary><strong>Go</strong></summary>
+
+   ```go
+   result, err := session.Model.GetCurrent(ctx)
+   fmt.Println("Active model:", result.ModelID)
+   ```
+   </details>
+
+   <details>
+   <summary><strong>.NET</strong></summary>
+
+   <!-- docs-validate: skip -->
+
+   ```csharp
+   var result = await session.GetModelAsync();
+   Console.WriteLine($"Active model: {result.ModelId}");
+   ```
+   </details>
+
+4. **Enable debug logging** (see [above](#enable-debug-logging)) to see server-side
+   fallback warnings in the CLI logs.
 
 ---
 
