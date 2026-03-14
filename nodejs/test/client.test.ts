@@ -97,6 +97,46 @@ describe("CopilotClient", () => {
         spy.mockRestore();
     });
 
+    it("forwards loadCliConfig in session.create request", async () => {
+        const client = new CopilotClient();
+        await client.start();
+        onTestFinished(() => client.forceStop());
+
+        const spy = vi.spyOn((client as any).connection!, "sendRequest");
+        await client.createSession({ loadCliConfig: true, onPermissionRequest: approveAll });
+
+        expect(spy).toHaveBeenCalledWith(
+            "session.create",
+            expect.objectContaining({ loadCliConfig: true })
+        );
+        spy.mockRestore();
+    });
+
+    it("forwards loadCliConfig in session.resume request", async () => {
+        const client = new CopilotClient();
+        await client.start();
+        onTestFinished(() => client.forceStop());
+
+        const session = await client.createSession({ onPermissionRequest: approveAll });
+        const spy = vi
+            .spyOn((client as any).connection!, "sendRequest")
+            .mockImplementation(async (method: string, params: any) => {
+                if (method === "session.resume") return { sessionId: params.sessionId };
+                throw new Error(`Unexpected method: ${method}`);
+            });
+
+        await client.resumeSession(session.sessionId, {
+            loadCliConfig: true,
+            onPermissionRequest: approveAll,
+        });
+
+        expect(spy).toHaveBeenCalledWith(
+            "session.resume",
+            expect.objectContaining({ sessionId: session.sessionId, loadCliConfig: true })
+        );
+        spy.mockRestore();
+    });
+
     it("sends session.model.switchTo RPC with correct params", async () => {
         const client = new CopilotClient();
         await client.start();

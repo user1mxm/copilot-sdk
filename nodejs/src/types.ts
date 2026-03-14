@@ -737,6 +737,15 @@ export interface SessionConfig {
     configDir?: string;
 
     /**
+     * When true, the runtime loads CLI-style extensibility from the current environment.
+     * This includes merged MCP config, default GitHub MCP behavior, skills, custom agents,
+     * installed plugins, and other config-backed session options.
+     * Explicit per-request settings are merged on top of discovered config.
+     * @default false
+     */
+    loadCliConfig?: boolean;
+
+    /**
      * Tools exposed to the CLI server
      */
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -865,6 +874,7 @@ export type ResumeSessionConfig = Pick<
     | "hooks"
     | "workingDirectory"
     | "configDir"
+    | "loadCliConfig"
     | "mcpServers"
     | "customAgents"
     | "agent"
