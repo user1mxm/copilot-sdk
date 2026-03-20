@@ -2836,12 +2836,7 @@ class PermissionsApi:
 
 
 class ShellApi:
-    def __init__(
-        self,
-        client: "JsonRpcClient",
-        session_id: str,
-        on_exec: Callable[[str], None] | None = None,
-    ):
+    def __init__(self, client: "JsonRpcClient", session_id: str, on_exec: Callable[[str], None] | None = None):
         self._client = client
         self._session_id = session_id
         self._on_exec = on_exec
@@ -2849,9 +2844,7 @@ class ShellApi:
     async def exec(self, params: SessionShellExecParams, *, timeout: float | None = None) -> SessionShellExecResult:
         params_dict = {k: v for k, v in params.to_dict().items() if v is not None}
         params_dict["sessionId"] = self._session_id
-        result = SessionShellExecResult.from_dict(
-            await self._client.request("session.shell.exec", params_dict, **_timeout_kwargs(timeout))
-        )
+        result = SessionShellExecResult.from_dict(await self._client.request("session.shell.exec", params_dict, **_timeout_kwargs(timeout)))
         if self._on_exec is not None:
             self._on_exec(result.process_id)
         return result
@@ -2864,12 +2857,7 @@ class ShellApi:
 
 class SessionRpc:
     """Typed session-scoped RPC methods."""
-    def __init__(
-        self,
-        client: "JsonRpcClient",
-        session_id: str,
-        on_shell_exec: Callable[[str], None] | None = None,
-    ):
+    def __init__(self, client: "JsonRpcClient", session_id: str, on_shell_exec: Callable[[str], None] | None = None):
         self._client = client
         self._session_id = session_id
         self.model = ModelApi(client, session_id)
@@ -2893,3 +2881,4 @@ class SessionRpc:
         params_dict = {k: v for k, v in params.to_dict().items() if v is not None}
         params_dict["sessionId"] = self._session_id
         return SessionLogResult.from_dict(await self._client.request("session.log", params_dict, **_timeout_kwargs(timeout)))
+
