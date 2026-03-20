@@ -343,8 +343,8 @@ class CopilotSession:
         for handler in handlers:
             try:
                 handler(notification)
-            except Exception:
-                pass  # Ignore handler errors
+            except Exception as e:
+                print(f"Error in shell output handler: {e}")
 
     def _dispatch_shell_exit(self, notification: ShellExitNotification) -> None:
         """Dispatch a shell exit notification to all registered handlers."""
@@ -354,8 +354,8 @@ class CopilotSession:
         for handler in handlers:
             try:
                 handler(notification)
-            except Exception:
-                pass  # Ignore handler errors
+            except Exception as e:
+                print(f"Error in shell exit handler: {e}")
 
     def _track_shell_process(self, process_id: str) -> None:
         """Track a shell process ID so notifications are routed to this session."""
