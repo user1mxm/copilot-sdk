@@ -30,6 +30,4 @@ timeout-minutes: 5
 
 # Question Handler
 
-Add the `question` label to issue #${{ inputs.issue_number }} and leave a comment. The comment should say the issue was classified as a question, and must end with this HTML comment (include it verbatim):
-
-<!-- triage-agent: [insert your feedback here] -->
+Add the `question` label to issue #${{ inputs.issue_number }}.

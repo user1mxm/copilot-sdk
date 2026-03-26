@@ -1,18 +1,8 @@
 name: Collect triage agent corrections
 
 on:
-  issue_comment:
-    types: [created, edited]
-  workflow_dispatch:
-    inputs:
-      comment_id:
-        description: "Comment ID to process as a correction"
-        required: true
-        type: string
-      issue_number:
-        description: "Issue number the comment belongs to"
-        required: true
-        type: string
+  repository_dispatch:
+    types: [triage_feedback]
 
 concurrency:
   group: collect-corrections
@@ -24,66 +14,41 @@ permissions:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    # For issue_comment: check marker presence + author permissions
-    # For workflow_dispatch: always run (manual trigger implies authorization)
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (
-        contains(github.event.comment.body, '<!-- triage-agent:') &&
-        (
-          github.event.comment.author_association == 'MEMBER' ||
-          github.event.comment.author_association == 'COLLABORATOR' ||
-          github.event.comment.author_association == 'OWNER'
-        )
-      )
     steps:
-      - name: Resolve context and validate
+      - name: Resolve context
         id: context
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          EVENT_NAME: ${{ github.event_name }}
-          EVENT_COMMENT_BODY: ${{ github.event.comment.body }}
-          EVENT_COMMENT_URL: ${{ github.event.comment.html_url }}
-          EVENT_COMMENT_ID: ${{ github.event.comment.id }}
-          EVENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
-          EVENT_ISSUE_TITLE: ${{ github.event.issue.title }}
-          INPUT_COMMENT_ID: ${{ inputs.comment_id }}
-          INPUT_ISSUE_NUMBER: ${{ inputs.issue_number }}
+          ISSUE_NUMBER: ${{ github.event.client_payload.issue_number }}
+          CATEGORY: ${{ github.event.client_payload.category }}
+          DETAILS: ${{ github.event.client_payload.details }}
+          SENDER: ${{ github.event.sender.login }}
         run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "Fetching comment $INPUT_COMMENT_ID via API..."
-            COMMENT_JSON=$(gh api "repos/${REPO}/issues/comments/${INPUT_COMMENT_ID}")
-            COMMENT_BODY=$(echo "$COMMENT_JSON" | jq -r '.body')
-            COMMENT_URL=$(echo "$COMMENT_JSON" | jq -r '.html_url')
-            COMMENT_ID="$INPUT_COMMENT_ID"
-            ISSUE_NUMBER="$INPUT_ISSUE_NUMBER"
-            ISSUE_TITLE=$(gh issue view "$INPUT_ISSUE_NUMBER" --repo "$REPO" --json title --jq '.title')
+          # Validate required fields
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "::error::Missing issue_number in payload"
+            exit 1
+          fi
+          if [ -z "$DETAILS" ] && [ -z "$CATEGORY" ]; then
+            echo "::error::At least one of category or details must be provided"
+            exit 1
+          fi
+
+          # Build the correction text from category + details
+          if [ -n "$CATEGORY" ] && [ -n "$DETAILS" ]; then
+            CORRECTION_TEXT="${CATEGORY}: ${DETAILS}"
+          elif [ -n "$DETAILS" ]; then
+            CORRECTION_TEXT="$DETAILS"
           else
-            COMMENT_BODY="$EVENT_COMMENT_BODY"
-            COMMENT_URL="$EVENT_COMMENT_URL"
-            COMMENT_ID="$EVENT_COMMENT_ID"
-            ISSUE_NUMBER="$EVENT_ISSUE_NUMBER"
-            ISSUE_TITLE="$EVENT_ISSUE_TITLE"
+            CORRECTION_TEXT="$CATEGORY"
           fi
 
-          # Extract the triage-agent correction text
-          CORRECTION_TEXT=$(echo "$COMMENT_BODY" | grep -oP '<!-- triage-agent:\s*\K.*?(?=\s*-->)' || echo "")
-          CORRECTION_TEXT=$(echo "$CORRECTION_TEXT" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title --jq '.title')
 
-          # Ignore empty or placeholder content (text fully enclosed in square brackets)
-          if [ -z "$CORRECTION_TEXT" ] || echo "$CORRECTION_TEXT" | grep -qP '^\[.*\]$'; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Skipping: empty or placeholder correction"
-            exit 0
-          fi
-
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          echo "comment_id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
-          echo "comment_url=$COMMENT_URL" >> "$GITHUB_OUTPUT"
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "sender=$SENDER" >> "$GITHUB_OUTPUT"
 
-          # Use heredoc delimiters for values that might contain special characters
           {
             echo "issue_title<<EOF_TITLE"
             echo "$ISSUE_TITLE"
@@ -96,16 +61,7 @@ jobs:
             echo "EOF_CORRECTION"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Add correction label to the issue
-        if: steps.context.outputs.skip != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
-          REPO: ${{ github.repository }}
-        run: gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "triage-agent-correction"
-
       - name: Find or create tracking issue
-        if: steps.context.outputs.skip != 'true'
         id: tracking
         env:
           GH_TOKEN: ${{ github.token }}
@@ -140,8 +96,8 @@ jobs:
 
           ## Corrections
 
-          | # | Issue | Correction | Comment ID | Date |
-          |---|-------|------------|------------|------|
+          | # | Issue | Category | Details | Submitted by | Date |
+          |---|-------|----------|---------|--------------|------|
           EOF
             )
             TRACKING_ISSUE=$(gh issue create \
@@ -155,20 +111,20 @@ jobs:
 
           echo "tracking_issue=$TRACKING_ISSUE" >> "$GITHUB_OUTPUT"
 
-      - name: Append or update correction in tracking issue
-        if: steps.context.outputs.skip != 'true'
+      - name: Append correction to tracking issue
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           TRACKING_ISSUE: ${{ steps.tracking.outputs.tracking_issue }}
           ISSUE_NUMBER: ${{ steps.context.outputs.issue_number }}
           ISSUE_TITLE: ${{ steps.context.outputs.issue_title }}
-          COMMENT_URL: ${{ steps.context.outputs.comment_url }}
-          COMMENT_ID: ${{ steps.context.outputs.comment_id }}
           CORRECTION_TEXT: ${{ steps.context.outputs.correction_text }}
+          SENDER: ${{ steps.context.outputs.sender }}
+          CATEGORY: ${{ github.event.client_payload.category }}
         run: |
           # Sanitize inputs for markdown table (escape pipes, strip newlines)
           SAFE_TITLE=$(echo "$ISSUE_TITLE" | tr -d '\n\r' | sed 's/|/\\|/g')
+          SAFE_CATEGORY=$(echo "$CATEGORY" | tr -d '\n\r' | sed 's/|/\\|/g')
           SAFE_CORRECTION=$(echo "$CORRECTION_TEXT" | tr -d '\n\r' | sed 's/|/\\|/g')
 
           # Get the current tracking issue body
@@ -176,31 +132,15 @@ jobs:
 
           TODAY=$(date -u +%Y-%m-%d)
 
-          # Check if this comment was already tracked (dedup by comment ID)
-          if echo "$CURRENT_BODY" | grep -qF "comment-${COMMENT_ID}"; then
-            echo "Comment already tracked, updating existing row..."
-            # Extract the existing row number
-            ROW_NUM=$(echo "$CURRENT_BODY" | grep -F "comment-${COMMENT_ID}" | awk -F '|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}')
-            NEW_ROW="| ${ROW_NUM} | [#${ISSUE_NUMBER}](https://github.com/${REPO}/issues/${ISSUE_NUMBER}) — ${SAFE_TITLE} | [comment](${COMMENT_URL}) — ${SAFE_CORRECTION} | comment-${COMMENT_ID} | ${TODAY} |"
-
-            # Replace the line containing this comment ID
-            UPDATED_BODY=$(echo "$CURRENT_BODY" | awk -v id="comment-${COMMENT_ID}" -v newrow="$NEW_ROW" '
-              index($0, id) { print newrow; next }
-              { print }
-            ')
-          else
-            echo "New correction, appending..."
-            NEXT_NUM=$(( $(echo "$CURRENT_BODY" | grep -c '^| [0-9]') + 1 ))
-            NEW_ROW="| ${NEXT_NUM} | [#${ISSUE_NUMBER}](https://github.com/${REPO}/issues/${ISSUE_NUMBER}) — ${SAFE_TITLE} | [comment](${COMMENT_URL}) — ${SAFE_CORRECTION} | comment-${COMMENT_ID} | ${TODAY} |"
-            UPDATED_BODY="${CURRENT_BODY}
+          NEXT_NUM=$(( $(echo "$CURRENT_BODY" | grep -c '^| [0-9]') + 1 ))
+          NEW_ROW="| ${NEXT_NUM} | [#${ISSUE_NUMBER}](https://github.com/${REPO}/issues/${ISSUE_NUMBER}) — ${SAFE_TITLE} | ${SAFE_CATEGORY} | ${SAFE_CORRECTION} | @${SENDER} | ${TODAY} |"
+          UPDATED_BODY="${CURRENT_BODY}
           ${NEW_ROW}"
-          fi
 
           gh issue edit "$TRACKING_ISSUE" --repo "$REPO" --body "$UPDATED_BODY"
-          echo "Updated tracking issue #$TRACKING_ISSUE"
+          echo "Appended correction #$NEXT_NUM to tracking issue #$TRACKING_ISSUE"
 
       - name: Auto-assign CCA if threshold reached
-        if: steps.context.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
