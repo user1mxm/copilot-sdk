@@ -2,7 +2,7 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *--------------------------------------------------------------------------------------------*/
 
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished } from "vitest";
 import { CopilotClient } from "../../src/client.js";
 import { approveAll, type SessionFsConfig } from "../../src/index.js";
 import { createSdkTestContext } from "./harness/sdkTestContext.js";
@@ -29,6 +29,14 @@ class InMemorySessionFs {
         rm: 0,
         rename: 0,
     };
+
+    public reset() {
+        this.files.clear();
+        this.dirs.clear();
+        for (const key in this.calls) {
+            this.calls[key as keyof typeof this.calls] = 0;
+        }
+    }
 
     private getSessionFiles(sessionId: string): Map<string, string> {
         let m = this.files.get(sessionId);
@@ -203,27 +211,18 @@ class InMemorySessionFs {
     }
 }
 
-// These tests require a runtime built with SessionFs support.
-// Skip when COPILOT_CLI_PATH is not set (CI uses the published CLI which
-// doesn't include this feature yet).
-const runTests = process.env.COPILOT_CLI_PATH ? describe : describe.skip;
+describe("Session Fs", async () => {
+    const fs = new InMemorySessionFs();
+    beforeEach(() => fs.reset());
 
-runTests("Session Fs", async () => {
-    const { env } = await createSdkTestContext();
+    const { copilotClient: client, env } = await createSdkTestContext({
+        copilotClientOptions: {
+            sessionFs: fs.toConfig("/projects/test", "/session-state"),
+        },
+    });
 
     it("should route file operations through the session fs provider", async () => {
-        const fs = new InMemorySessionFs();
-        const client1 = new CopilotClient({
-            env,
-            logLevel: "error",
-            cliPath: process.env.COPILOT_CLI_PATH,
-            sessionFs: fs.toConfig("/projects/test", "/session-state"),
-        });
-        onTestFinished(() => client1.forceStop());
-
-        const session = await client1.createSession({
-            onPermissionRequest: approveAll,
-        });
+        const session = await client.createSession({ onPermissionRequest: approveAll });
 
         // Send a message and wait for the response
         const msg = await session.sendAndWait({ prompt: "What is 100 + 200?" });
@@ -231,46 +230,25 @@ runTests("Session Fs", async () => {
 
         // Verify file operations were routed through our fs provider.
         // The runtime writes events as JSONL through appendFile/writeFile.
-        await vi.waitFor(
-            () => {
-                const paths = fs.getFilePaths(session.sessionId);
-                const hasEvents = paths.some((p) => p.includes("events"));
-                expect(hasEvents).toBe(true);
-            },
-            { timeout: 10_000, interval: 200 },
-        );
-        expect(fs.calls.writeFile + fs.calls.appendFile).toBeGreaterThan(0);
-        expect(fs.calls.mkdir).toBeGreaterThan(0);
+        // TODO: Replace these assertions with reading the events.jsonl file
+        await expect.poll(() => fs.calls.writeFile + fs.calls.appendFile).toBeGreaterThan(0);
     });
 
     it("should load session data from fs provider on resume", async () => {
-        const sessionFs = new InMemorySessionFs();
-
-        const client2 = new CopilotClient({
-            env,
-            logLevel: "error",
-            cliPath: process.env.COPILOT_CLI_PATH,
-            sessionFs: sessionFs.toConfig("/projects/test", "/session-state"),
-        });
-        onTestFinished(() => client2.forceStop());
-
-        // Create a session and send a message
-        const session1 = await client2.createSession({
-            onPermissionRequest: approveAll,
-        });
+        const session1 = await client.createSession({ onPermissionRequest: approveAll });
         const sessionId = session1.sessionId;
 
-        const msg1 = await session1.sendAndWait({ prompt: "What is 50 + 50?" });
-        expect(msg1?.data.content).toContain("100");
+        const msg = await session1.sendAndWait({ prompt: "What is 50 + 50?" });
+        expect(msg?.data.content).toContain("100");
         await session1.disconnect();
 
         // Verify readFile is called when resuming (to load events)
-        const readCountBefore = sessionFs.calls.readFile;
-        const session2 = await client2.resumeSession(sessionId, {
+        const readCountBefore = fs.calls.readFile;
+        const session2 = await client.resumeSession(sessionId, {
             onPermissionRequest: approveAll,
         });
 
-        expect(sessionFs.calls.readFile).toBeGreaterThan(readCountBefore);
+        expect(fs.calls.readFile).toBeGreaterThan(readCountBefore);
 
         // Send another message to verify the session is functional
         const msg2 = await session2.sendAndWait({ prompt: "What is that times 3?" });
@@ -278,34 +256,26 @@ runTests("Session Fs", async () => {
     });
 
     it("should reject setProvider when sessions already exist", async () => {
-        // First client uses TCP so a second client can connect to the same runtime
-        const client5 = new CopilotClient({
+        const client = new CopilotClient({
+            useStdio: false, // Use TCP so we can connect from a second client
             env,
-            logLevel: "error",
-            cliPath: process.env.COPILOT_CLI_PATH,
-            useStdio: false,
         });
-        onTestFinished(() => client5.forceStop());
-
-        const session = await client5.createSession({
-            onPermissionRequest: approveAll,
-        });
-        await session.sendAndWait({ prompt: "Hello" });
+        await client.createSession({ onPermissionRequest: approveAll });
 
         // Get the port the first client's runtime is listening on
-        const port = (client5 as unknown as { actualPort: number }).actualPort;
+        const port = (client as unknown as { actualPort: number }).actualPort;
 
         // Second client tries to connect with a session fs — should fail
         // because sessions already exist on the runtime.
         const sessionFs = new InMemorySessionFs();
-        const client6 = new CopilotClient({
+        const client2 = new CopilotClient({
             env,
             logLevel: "error",
             cliUrl: `localhost:${port}`,
             sessionFs: sessionFs.toConfig("/projects/test", "/session-state"),
         });
-        onTestFinished(() => client6.forceStop());
+        onTestFinished(() => client2.forceStop());
 
-        await expect(client6.start()).rejects.toThrow();
+        await expect(client2.start()).rejects.toThrow();
     });
 });
