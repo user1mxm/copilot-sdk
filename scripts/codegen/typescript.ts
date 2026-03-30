@@ -270,7 +270,7 @@ function emitClientSessionApiRegistration(clientSchema: Record<string, unknown>)
     lines.push(` */`);
     lines.push(`export function registerClientSessionApiHandlers(`);
     lines.push(`    connection: MessageConnection,`);
-    lines.push(`    getHandlers: (sessionId: string) => ClientSessionApiHandlers | undefined,`);
+    lines.push(`    getHandlers: (sessionId: string) => ClientSessionApiHandlers,`);
     lines.push(`): void {`);
 
     for (const [groupName, methods] of groups) {
@@ -281,9 +281,7 @@ function emitClientSessionApiRegistration(clientSchema: Record<string, unknown>)
 
             if (hasParams) {
                 lines.push(`    connection.onRequest("${method.rpcMethod}", async (params: ${pType}) => {`);
-                lines.push(`        const handlers = getHandlers(params.sessionId);`);
-                lines.push(`        if (!handlers) throw new Error(\`No session found for sessionId: \${params.sessionId}\`);`);
-                lines.push(`        const handler = handlers.${groupName};`);
+                lines.push(`        const handler = getHandlers(params.sessionId).${groupName};`);
                 lines.push(`        if (!handler) throw new Error(\`No ${groupName} handler registered for session: \${params.sessionId}\`);`);
                 lines.push(`        return handler.${name}(params);`);
                 lines.push(`    });`);

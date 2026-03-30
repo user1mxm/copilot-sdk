@@ -1647,9 +1647,11 @@ export class CopilotClient {
 
         // Register client session API handlers.
         const sessions = this.sessions;
-        registerClientSessionApiHandlers(this.connection, (sessionId) =>
-            sessions.get(sessionId)?.clientSessionApis,
-        );
+        registerClientSessionApiHandlers(this.connection, (sessionId) => {
+            const session = sessions.get(sessionId);
+            if (!session) throw new Error(`No session found for sessionId: ${sessionId}`);
+            return session.clientSessionApis;
+        });
 
         this.connection.onClose(() => {
             this.state = "disconnected";
