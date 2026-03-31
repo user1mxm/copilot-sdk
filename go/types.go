@@ -601,15 +601,14 @@ type ProviderConfig struct {
 	BearerToken string `json:"bearerToken,omitempty"`
 	// Azure contains Azure-specific options
 	Azure *AzureProviderOptions `json:"azure,omitempty"`
-	// MaxOutputTokens overrides the maximum number of output tokens the model can generate.
-	// When set, takes precedence over the default limit from the model's capability catalog entry.
+	// MaxOutputTokens is the maximum number of tokens the model can generate in a single response.
+	// Sent as max_tokens per LLM API request. When hit, the model stops generating and returns
+	// a truncated response.
 	MaxOutputTokens int `json:"maxOutputTokens,omitempty"`
-	// MaxPromptTokens overrides the maximum number of prompt/input tokens.
-	// When set, takes precedence over the default limit from the model's capability catalog entry.
+	// MaxPromptTokens is the maximum number of tokens allowed in the prompt for a single LLM API
+	// request. Used by the runtime to trigger conversation compaction before sending a request
+	// when the prompt (system message, history, tool definitions, user message) exceeds this limit.
 	MaxPromptTokens int `json:"maxPromptTokens,omitempty"`
-	// MaxContextWindowTokens overrides the maximum context window size in tokens.
-	// When set, takes precedence over the default limit from the model's capability catalog entry.
-	MaxContextWindowTokens int `json:"maxContextWindowTokens,omitempty"`
 	// ModelLimitsID specifies the model ID used to look up default token limits from the capability catalog.
 	// When unset, the session's configured model ID is used.
 	// Useful for fine-tuned models that share the same limits as a base model.

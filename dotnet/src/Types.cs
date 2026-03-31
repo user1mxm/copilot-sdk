@@ -1117,25 +1117,20 @@ public class ProviderConfig
     public AzureOptions? Azure { get; set; }
 
     /// <summary>
-    /// Overrides the maximum number of output tokens the model can generate.
-    /// When set, takes precedence over the default limit resolved from the model's capability catalog entry.
+    /// Maximum number of tokens the model can generate in a single response.
+    /// Sent as <c>max_tokens</c> per LLM API request. When hit, the model stops
+    /// generating and returns a truncated response.
     /// </summary>
     [JsonPropertyName("maxOutputTokens")]
     public int? MaxOutputTokens { get; set; }
 
     /// <summary>
-    /// Overrides the maximum number of prompt/input tokens.
-    /// When set, takes precedence over the default limit resolved from the model's capability catalog entry.
+    /// Maximum number of tokens allowed in the prompt for a single LLM API request.
+    /// Used by the runtime to trigger conversation compaction before sending a request
+    /// when the prompt (system message, history, tool definitions, user message) exceeds this limit.
     /// </summary>
     [JsonPropertyName("maxPromptTokens")]
     public int? MaxPromptTokens { get; set; }
-
-    /// <summary>
-    /// Overrides the maximum context window size in tokens.
-    /// When set, takes precedence over the default limit resolved from the model's capability catalog entry.
-    /// </summary>
-    [JsonPropertyName("maxContextWindowTokens")]
-    public int? MaxContextWindowTokens { get; set; }
 
     /// <summary>
     /// Specifies the model ID used to look up default token limits from the capability catalog.

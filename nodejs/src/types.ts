@@ -1262,22 +1262,18 @@ export interface ProviderConfig {
     };
 
     /**
-     * Overrides the maximum number of output tokens the model can generate.
-     * When set, takes precedence over the default limit resolved from the model's capability catalog entry.
+     * Maximum number of tokens the model can generate in a single response.
+     * Sent as {@link https://platform.openai.com/docs/api-reference/chat/create#chat-create-max_tokens max_tokens} per LLM API request.
+     * When hit, the model stops generating and returns a truncated response.
      */
     maxOutputTokens?: number;
 
     /**
-     * Overrides the maximum number of prompt/input tokens.
-     * When set, takes precedence over the default limit resolved from the model's capability catalog entry.
+     * Maximum number of tokens allowed in the prompt for a single LLM API request.
+     * Used by the runtime to trigger conversation compaction before sending a request
+     * when the prompt (system message, history, tool definitions, user message) exceeds this limit.
      */
     maxPromptTokens?: number;
-
-    /**
-     * Overrides the maximum context window size in tokens.
-     * When set, takes precedence over the default limit resolved from the model's capability catalog entry.
-     */
-    maxContextWindowTokens?: number;
 
     /**
      * Specifies the model ID used to look up default token limits from the capability catalog.
