@@ -7,6 +7,8 @@ conversations:
       - role: user
         content: Read the contents of world.txt and tell me what it says
       - role: assistant
+        content: I'll read the contents of world.txt for you.
+      - role: assistant
         tool_calls:
           - id: toolcall_0
             type: function
@@ -26,6 +28,7 @@ conversations:
       - role: user
         content: Read the contents of world.txt and tell me what it says
       - role: assistant
+        content: I'll read the contents of world.txt for you.
         tool_calls:
           - id: toolcall_0
             type: function
@@ -44,4 +47,8 @@ conversations:
         tool_call_id: toolcall_1
         content: 1. World from the test!
       - role: assistant
-        content: 'The file contains: "World from the test!"'
+        content: |-
+          The file **world.txt** contains:
+          ```
+          World from the test!
+          ```
