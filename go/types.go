@@ -599,6 +599,9 @@ type ProviderConfig struct {
 	// Use this for services requiring bearer token auth instead of API key.
 	// Takes precedence over APIKey when both are set.
 	BearerToken string `json:"bearerToken,omitempty"`
+	// Headers contains custom HTTP headers to include in all outbound requests to the provider.
+	// Supports env var expansion (e.g. ${VAR}, ${VAR:-default}).
+	Headers map[string]string `json:"headers,omitempty"`
 	// Azure contains Azure-specific options
 	Azure *AzureProviderOptions `json:"azure,omitempty"`
 }
@@ -608,6 +611,16 @@ type AzureProviderOptions struct {
 	// APIVersion is the Azure API version. Defaults to "2024-10-21".
 	APIVersion string `json:"apiVersion,omitempty"`
 }
+
+// HeaderMergeStrategy defines how per-turn request headers are merged with session-level provider headers.
+type HeaderMergeStrategy string
+
+const (
+	// HeaderMergeStrategyOverride means per-turn headers completely replace session-level headers.
+	HeaderMergeStrategyOverride HeaderMergeStrategy = "override"
+	// HeaderMergeStrategyMerge means per-turn headers are merged with session-level headers; per-turn wins on conflicts.
+	HeaderMergeStrategyMerge HeaderMergeStrategy = "merge"
+)
 
 // ToolBinaryResult represents binary payloads returned by tools.
 type ToolBinaryResult struct {
@@ -625,6 +638,10 @@ type MessageOptions struct {
 	Attachments []Attachment
 	// Mode is the message delivery mode (default: "enqueue")
 	Mode string
+	// RequestHeaders contains custom HTTP headers for this turn only.
+	RequestHeaders map[string]string
+	// HeaderMergeStrategy defines how per-turn headers merge with session-level headers. Defaults to "override".
+	HeaderMergeStrategy HeaderMergeStrategy
 }
 
 // SessionEventHandler is a callback for session events
@@ -935,12 +952,14 @@ type sessionAbortRequest struct {
 }
 
 type sessionSendRequest struct {
-	SessionID   string       `json:"sessionId"`
-	Prompt      string       `json:"prompt"`
-	Attachments []Attachment `json:"attachments,omitempty"`
-	Mode        string       `json:"mode,omitempty"`
-	Traceparent string       `json:"traceparent,omitempty"`
-	Tracestate  string       `json:"tracestate,omitempty"`
+	SessionID           string              `json:"sessionId"`
+	Prompt              string              `json:"prompt"`
+	Attachments         []Attachment        `json:"attachments,omitempty"`
+	Mode                string              `json:"mode,omitempty"`
+	RequestHeaders      map[string]string   `json:"requestHeaders,omitempty"`
+	HeaderMergeStrategy HeaderMergeStrategy `json:"headerMergeStrategy,omitempty"`
+	Traceparent         string              `json:"traceparent,omitempty"`
+	Tracestate          string              `json:"tracestate,omitempty"`
 }
 
 // sessionSendResponse is the response from session.send

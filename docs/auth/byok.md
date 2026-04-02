@@ -175,6 +175,7 @@ Console.WriteLine(response?.Data.Content);
 | `apiKey` / `api_key` | string | API key (optional for local providers like Ollama) |
 | `bearerToken` / `bearer_token` | string | Bearer token auth (takes precedence over apiKey) |
 | `wireApi` / `wire_api` | `"completions"` \| `"responses"` | API format (default: `"completions"`) |
+| `headers` | `Record<string, string>` | Custom HTTP headers for all outbound requests ([details](#custom-headers)) |
 | `azure.apiVersion` / `azure.api_version` | string | Azure API version (default: `"2024-10-21"`) |
 
 ### Wire API Format
@@ -303,6 +304,327 @@ provider: {
 ```
 
 > **Note:** The `bearerToken` option accepts a **static token string** only. The SDK does not refresh this token automatically. If your token expires, requests will fail and you'll need to create a new session with a fresh token.
+
+## Custom Headers
+
+Custom headers let you attach additional HTTP headers to every outbound model request. This is useful when your provider endpoint sits behind an API gateway or proxy that requires extra authentication or routing headers.
+
+### Use Cases
+
+| Scenario | Example Header |
+|----------|---------------|
+| Azure API Management / AI Gateway | `Ocp-Apim-Subscription-Key` |
+| Cloudflare Tunnel authentication | `CF-Access-Client-Id`, `CF-Access-Client-Secret` |
+| Custom API gateways with proprietary auth | `X-Gateway-Auth`, `X-Tenant-Id` |
+| BYOK routing through enterprise proxies | `X-Proxy-Authorization`, `X-Route-Target` |
+
+### Session-Level Headers
+
+Set `headers` on `ProviderConfig` when creating a session. These headers are included in **every** outbound request for the lifetime of the session.
+
+<details open>
+<summary><strong>Node.js / TypeScript</strong></summary>
+
+```typescript
+import { CopilotClient } from "@github/copilot-sdk";
+
+const client = new CopilotClient();
+const session = await client.createSession({
+    model: "gpt-4.1",
+    provider: {
+        type: "openai",
+        baseUrl: "https://my-gateway.example.com/v1",
+        apiKey: process.env.OPENAI_API_KEY,
+        headers: {
+            "Ocp-Apim-Subscription-Key": process.env.APIM_KEY!,
+            "X-Tenant-Id": "my-team",
+        },
+    },
+});
+```
+
+</details>
+
+<details>
+<summary><strong>Python</strong></summary>
+
+```python
+import os
+from copilot import CopilotClient
+
+client = CopilotClient()
+await client.start()
+
+session = await client.create_session(
+    model="gpt-4.1",
+    provider={
+        "type": "openai",
+        "base_url": "https://my-gateway.example.com/v1",
+        "api_key": os.environ["OPENAI_API_KEY"],
+        "headers": {
+            "Ocp-Apim-Subscription-Key": os.environ["APIM_KEY"],
+            "X-Tenant-Id": "my-team",
+        },
+    },
+)
+```
+
+</details>
+
+<details>
+<summary><strong>Go</strong></summary>
+
+```go
+session, err := client.CreateSession(ctx, &copilot.SessionConfig{
+    Model: "gpt-4.1",
+    Provider: &copilot.ProviderConfig{
+        Type:    "openai",
+        BaseURL: "https://my-gateway.example.com/v1",
+        APIKey:  os.Getenv("OPENAI_API_KEY"),
+        Headers: map[string]string{
+            "Ocp-Apim-Subscription-Key": os.Getenv("APIM_KEY"),
+            "X-Tenant-Id":              "my-team",
+        },
+    },
+})
+```
+
+</details>
+
+<details>
+<summary><strong>.NET</strong></summary>
+
+```csharp
+var session = await client.CreateSessionAsync(new SessionConfig
+{
+    Model = "gpt-4.1",
+    Provider = new ProviderConfig
+    {
+        Type = "openai",
+        BaseUrl = "https://my-gateway.example.com/v1",
+        ApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY"),
+        Headers = new Dictionary<string, string>
+        {
+            ["Ocp-Apim-Subscription-Key"] = Environment.GetEnvironmentVariable("APIM_KEY")!,
+            ["X-Tenant-Id"] = "my-team",
+        },
+    },
+});
+```
+
+</details>
+
+### Per-Turn Headers
+
+Pass `requestHeaders` on `send()` to include headers for a **single turn** only. This is useful when headers change between requests (e.g., per-request trace IDs or rotating tokens).
+
+<details open>
+<summary><strong>Node.js / TypeScript</strong></summary>
+
+```typescript
+await session.send({
+    prompt: "Summarize this document",
+    requestHeaders: {
+        "X-Request-Id": crypto.randomUUID(),
+    },
+});
+```
+
+</details>
+
+<details>
+<summary><strong>Python</strong></summary>
+
+```python
+import uuid
+
+await session.send(
+    "Summarize this document",
+    request_headers={
+        "X-Request-Id": str(uuid.uuid4()),
+    },
+)
+```
+
+</details>
+
+<details>
+<summary><strong>Go</strong></summary>
+
+```go
+_, err := session.Send(ctx, copilot.MessageOptions{
+    Prompt: "Summarize this document",
+    RequestHeaders: map[string]string{
+        "X-Request-Id": uuid.NewString(),
+    },
+})
+```
+
+</details>
+
+<details>
+<summary><strong>.NET</strong></summary>
+
+```csharp
+await session.SendAsync(new MessageOptions
+{
+    Prompt = "Summarize this document",
+    RequestHeaders = new Dictionary<string, string>
+    {
+        ["X-Request-Id"] = Guid.NewGuid().ToString(),
+    },
+});
+```
+
+</details>
+
+### Header Merge Strategy
+
+When you provide both session-level `headers` and per-turn `requestHeaders`, the `headerMergeStrategy` controls how they combine.
+
+| Strategy | Behavior |
+|----------|----------|
+| `"override"` (default) | Per-turn headers **completely replace** session-level headers. No session headers are sent for that turn. This is the safest default — no unexpected header leakage. |
+| `"merge"` | Per-turn headers are **merged** with session-level headers. Per-turn values win on key conflicts. |
+
+#### Override (Default)
+
+```typescript
+// Session created with headers: { "X-Team": "alpha", "X-Env": "prod" }
+
+await session.send({
+    prompt: "Hello",
+    requestHeaders: { "X-Request-Id": "abc-123" },
+    // headerMergeStrategy defaults to "override"
+});
+// Only "X-Request-Id" is sent — session headers are NOT included
+```
+
+#### Merge
+
+```typescript
+// Session created with headers: { "X-Team": "alpha", "X-Env": "prod" }
+
+await session.send({
+    prompt: "Hello",
+    requestHeaders: { "X-Env": "staging", "X-Request-Id": "abc-123" },
+    headerMergeStrategy: "merge",
+});
+// Sent headers: { "X-Team": "alpha", "X-Env": "staging", "X-Request-Id": "abc-123" }
+// "X-Env" from per-turn wins over session-level value
+```
+
+The merge strategy setting is available in all languages:
+
+| Language | Field |
+|----------|-------|
+| TypeScript | `headerMergeStrategy: "override" \| "merge"` |
+| Python | `header_merge_strategy: Literal["override", "merge"]` |
+| Go | `HeaderMergeStrategy: copilot.HeaderMergeStrategyOverride \| copilot.HeaderMergeStrategyMerge` |
+| C# | `HeaderMergeStrategy = HeaderMergeStrategy.Override \| HeaderMergeStrategy.Merge` |
+
+### Updating Provider Configuration Mid-Session
+
+Use `updateProvider()` to change provider configuration — including headers — between turns without recreating the session. This is useful for rotating API keys, switching tenants, or adjusting gateway headers on the fly.
+
+<details open>
+<summary><strong>Node.js / TypeScript</strong></summary>
+
+```typescript
+// Rotate the subscription key between turns
+await session.updateProvider({
+    headers: {
+        "Ocp-Apim-Subscription-Key": newSubscriptionKey,
+        "X-Tenant-Id": "new-team",
+    },
+});
+
+// Subsequent sends use the updated headers
+await session.send({ prompt: "Continue" });
+```
+
+</details>
+
+<details>
+<summary><strong>Python</strong></summary>
+
+```python
+await session.update_provider({
+    "headers": {
+        "Ocp-Apim-Subscription-Key": new_subscription_key,
+        "X-Tenant-Id": "new-team",
+    },
+})
+
+await session.send("Continue")
+```
+
+</details>
+
+<details>
+<summary><strong>Go</strong></summary>
+
+```go
+err := session.UpdateProvider(ctx, copilot.ProviderConfig{
+    Headers: map[string]string{
+        "Ocp-Apim-Subscription-Key": newSubscriptionKey,
+        "X-Tenant-Id":              "new-team",
+    },
+})
+
+_, err = session.Send(ctx, copilot.MessageOptions{Prompt: "Continue"})
+```
+
+</details>
+
+<details>
+<summary><strong>.NET</strong></summary>
+
+```csharp
+await session.UpdateProviderAsync(new ProviderConfig
+{
+    Headers = new Dictionary<string, string>
+    {
+        ["Ocp-Apim-Subscription-Key"] = newSubscriptionKey,
+        ["X-Tenant-Id"] = "new-team",
+    },
+});
+
+await session.SendAsync(new MessageOptions { Prompt = "Continue" });
+```
+
+</details>
+
+### Environment Variable Expansion
+
+Header values support environment variable expansion at the runtime level. This lets you reference secrets without hardcoding them in your application code.
+
+| Syntax | Behavior |
+|--------|----------|
+| `${VAR}` | Replaced with the value of `VAR`. Fails if `VAR` is not set. |
+| `$VAR` | Same as `${VAR}`. |
+| `${VAR:-default}` | Replaced with the value of `VAR`, or `default` if `VAR` is not set. |
+
+```typescript
+provider: {
+    type: "openai",
+    baseUrl: "https://my-gateway.example.com/v1",
+    headers: {
+        // Expanded at runtime from the APIM_KEY environment variable
+        "Ocp-Apim-Subscription-Key": "${APIM_KEY}",
+        // Falls back to "default-tenant" if X_TENANT is not set
+        "X-Tenant-Id": "${X_TENANT:-default-tenant}",
+    },
+}
+```
+
+> **Note:** Expansion is performed by the CLI server, not the SDK client. The SDK passes header values as-is to the server, which resolves environment variables before sending requests to your provider.
+
+### Security Considerations
+
+- **Scoped to your endpoint** — Custom headers are sent only to the configured `baseUrl`. They are never sent to GitHub Copilot servers or other endpoints.
+- **Prefer env var expansion** — Use `${VAR}` syntax for sensitive values like API keys and tokens rather than hardcoding them. This avoids secrets in source code and logs.
+- **Override is the safe default** — The default `headerMergeStrategy` of `"override"` ensures per-turn headers completely replace session-level headers, preventing accidental leakage of session headers into turns that specify their own.
 
 ## Custom Model Listing
 

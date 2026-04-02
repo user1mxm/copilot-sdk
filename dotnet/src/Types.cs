@@ -1111,6 +1111,13 @@ public class ProviderConfig
     public string? BearerToken { get; set; }
 
     /// <summary>
+    /// Custom HTTP headers to include in all outbound requests to the provider.
+    /// Supports env var expansion (e.g. ${VAR}, ${VAR:-default}).
+    /// </summary>
+    [JsonPropertyName("headers")]
+    public Dictionary<string, string>? Headers { get; set; }
+
+    /// <summary>
     /// Azure-specific configuration options.
     /// </summary>
     [JsonPropertyName("azure")]
@@ -1127,6 +1134,17 @@ public class AzureOptions
     /// </summary>
     [JsonPropertyName("apiVersion")]
     public string? ApiVersion { get; set; }
+}
+
+/// <summary>
+/// Strategy for merging per-turn request headers with session-level provider headers.
+/// </summary>
+public static class HeaderMergeStrategy
+{
+    /// <summary>Per-turn headers completely replace session-level headers.</summary>
+    public const string Override = "override";
+    /// <summary>Per-turn headers are merged with session-level headers; per-turn wins on conflicts.</summary>
+    public const string Merge = "merge";
 }
 
 // ============================================================================
@@ -1686,6 +1704,8 @@ public class MessageOptions
         Attachments = other.Attachments is not null ? [.. other.Attachments] : null;
         Mode = other.Mode;
         Prompt = other.Prompt;
+        RequestHeaders = other.RequestHeaders is not null ? new(other.RequestHeaders) : null;
+        HeaderMergeStrategy = other.HeaderMergeStrategy;
     }
 
     /// <summary>
@@ -1700,6 +1720,17 @@ public class MessageOptions
     /// Interaction mode for the message (e.g., "plan", "edit").
     /// </summary>
     public string? Mode { get; set; }
+    /// <summary>
+    /// Custom HTTP headers to include in outbound model requests for this turn only.
+    /// </summary>
+    [JsonPropertyName("requestHeaders")]
+    public Dictionary<string, string>? RequestHeaders { get; set; }
+    /// <summary>
+    /// Strategy for merging per-turn request headers with session-level provider headers.
+    /// Defaults to "override".
+    /// </summary>
+    [JsonPropertyName("headerMergeStrategy")]
+    public string? HeaderMergeStrategy { get; set; }
 
     /// <summary>
     /// Creates a shallow clone of this <see cref="MessageOptions"/> instance.

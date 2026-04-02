@@ -507,6 +507,12 @@ class ProviderConfig(TypedDict, total=False):
     # Takes precedence over api_key when both are set.
     bearer_token: str
     azure: AzureProviderOptions  # Azure-specific options
+    # Custom HTTP headers to include in all outbound requests to the provider.
+    # Supports env var expansion (e.g. ${VAR}, ${VAR:-default}).
+    headers: dict[str, str]
+
+
+HeaderMergeStrategy = Literal["override", "merge"]
 
 
 class SessionConfig(TypedDict, total=False):
@@ -706,6 +712,8 @@ class CopilotSession:
         *,
         attachments: list[Attachment] | None = None,
         mode: Literal["enqueue", "immediate"] | None = None,
+        request_headers: dict[str, str] | None = None,
+        header_merge_strategy: HeaderMergeStrategy | None = None,
     ) -> str:
         """
         Send a message to this session.
@@ -718,6 +726,9 @@ class CopilotSession:
             prompt: The message text to send.
             attachments: Optional file, directory, or selection attachments.
             mode: Message delivery mode (``"enqueue"`` or ``"immediate"``).
+            request_headers: Custom HTTP headers for this turn only.
+            header_merge_strategy: Strategy for merging per-turn headers with
+                session-level provider headers. Defaults to ``"override"``.
 
         Returns:
             The message ID assigned by the server, which can be used to correlate events.
@@ -739,6 +750,10 @@ class CopilotSession:
             params["attachments"] = attachments
         if mode is not None:
             params["mode"] = mode
+        if request_headers is not None:
+            params["requestHeaders"] = request_headers
+        if header_merge_strategy is not None:
+            params["headerMergeStrategy"] = header_merge_strategy
         params.update(get_trace_context())
 
         response = await self._client.request("session.send", params)
@@ -1373,6 +1388,28 @@ class CopilotSession:
             >>> await session.abort()
         """
         await self._client.request("session.abort", {"sessionId": self.session_id})
+
+    async def update_provider(self, provider: ProviderConfig) -> None:
+        """
+        Update the provider configuration for this session.
+
+        This allows changing headers, authentication, or other provider settings
+        between turns.
+
+        Args:
+            provider: Provider configuration to update.
+
+        Raises:
+            Exception: If the session has been destroyed or the connection fails.
+
+        Example:
+            >>> await session.update_provider({"headers": {"X-Custom": "value"}})
+        """
+        wire_provider = self._client._convert_provider_to_wire_format(provider)
+        await self._client.request(
+            "session.provider.update",
+            {"sessionId": self.session_id, "provider": wire_provider},
+        )
 
     async def set_model(self, model: str, *, reasoning_effort: str | None = None) -> None:
         """

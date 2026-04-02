@@ -539,6 +539,26 @@ session, err := client.CreateSession(context.Background(), &copilot.SessionConfi
 > - For Azure OpenAI endpoints (`*.openai.azure.com`), you **must** use `Type: "azure"`, not `Type: "openai"`.
 > - The `BaseURL` should be just the host (e.g., `https://my-resource.openai.azure.com`). Do **not** include `/openai/v1` in the URL - the SDK handles path construction automatically.
 
+### Custom Headers
+
+You can attach custom HTTP headers to outbound model requests — useful for API gateways, proxy authentication, or tenant routing:
+
+```go
+session, err := client.CreateSession(ctx, &copilot.SessionConfig{
+    Model: "gpt-4.1",
+    Provider: &copilot.ProviderConfig{
+        Type:    "openai",
+        BaseURL: "https://my-gateway.example.com/v1",
+        APIKey:  os.Getenv("OPENAI_API_KEY"),
+        Headers: map[string]string{
+            "Ocp-Apim-Subscription-Key": "${APIM_KEY}",
+        },
+    },
+})
+```
+
+Per-turn headers and merge strategies are also supported. See the [Custom Headers](docs/auth/byok.md#custom-headers) section in the BYOK guide for full details.
+
 ## Telemetry
 
 The SDK supports OpenTelemetry for distributed tracing. Provide a `Telemetry` config to enable trace export and automatic W3C Trace Context propagation.

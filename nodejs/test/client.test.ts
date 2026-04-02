@@ -977,4 +977,221 @@ describe("CopilotClient", () => {
             rpcSpy.mockRestore();
         });
     });
+
+    describe("custom headers", () => {
+        it("sends requestHeaders in session.send RPC call", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const session = await client.createSession({ onPermissionRequest: approveAll });
+            const spy = vi
+                .spyOn((client as any).connection!, "sendRequest")
+                .mockImplementation(async (method: string) => {
+                    if (method === "session.send") return { messageId: "msg-1" };
+                    throw new Error(`Unexpected method: ${method}`);
+                });
+
+            await session.send({
+                prompt: "hello",
+                requestHeaders: { "X-Custom": "value", "X-Another": "other" },
+            });
+
+            expect(spy).toHaveBeenCalledWith(
+                "session.send",
+                expect.objectContaining({
+                    requestHeaders: { "X-Custom": "value", "X-Another": "other" },
+                })
+            );
+            spy.mockRestore();
+        });
+
+        it("sends headerMergeStrategy 'override' in session.send RPC call", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const session = await client.createSession({ onPermissionRequest: approveAll });
+            const spy = vi
+                .spyOn((client as any).connection!, "sendRequest")
+                .mockImplementation(async (method: string) => {
+                    if (method === "session.send") return { messageId: "msg-1" };
+                    throw new Error(`Unexpected method: ${method}`);
+                });
+
+            await session.send({
+                prompt: "hello",
+                requestHeaders: { "X-Custom": "value" },
+                headerMergeStrategy: "override",
+            });
+
+            expect(spy).toHaveBeenCalledWith(
+                "session.send",
+                expect.objectContaining({
+                    headerMergeStrategy: "override",
+                })
+            );
+            spy.mockRestore();
+        });
+
+        it("sends headerMergeStrategy 'merge' in session.send RPC call", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const session = await client.createSession({ onPermissionRequest: approveAll });
+            const spy = vi
+                .spyOn((client as any).connection!, "sendRequest")
+                .mockImplementation(async (method: string) => {
+                    if (method === "session.send") return { messageId: "msg-1" };
+                    throw new Error(`Unexpected method: ${method}`);
+                });
+
+            await session.send({
+                prompt: "hello",
+                requestHeaders: { "X-Custom": "value" },
+                headerMergeStrategy: "merge",
+            });
+
+            expect(spy).toHaveBeenCalledWith(
+                "session.send",
+                expect.objectContaining({
+                    headerMergeStrategy: "merge",
+                })
+            );
+            spy.mockRestore();
+        });
+
+        it("sends empty requestHeaders when provided", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const session = await client.createSession({ onPermissionRequest: approveAll });
+            const spy = vi
+                .spyOn((client as any).connection!, "sendRequest")
+                .mockImplementation(async (method: string) => {
+                    if (method === "session.send") return { messageId: "msg-1" };
+                    throw new Error(`Unexpected method: ${method}`);
+                });
+
+            await session.send({
+                prompt: "hello",
+                requestHeaders: {},
+            });
+
+            expect(spy).toHaveBeenCalledWith(
+                "session.send",
+                expect.objectContaining({
+                    requestHeaders: {},
+                })
+            );
+            spy.mockRestore();
+        });
+
+        it("does not include requestHeaders when undefined", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const session = await client.createSession({ onPermissionRequest: approveAll });
+            const spy = vi
+                .spyOn((client as any).connection!, "sendRequest")
+                .mockImplementation(async (method: string) => {
+                    if (method === "session.send") return { messageId: "msg-1" };
+                    throw new Error(`Unexpected method: ${method}`);
+                });
+
+            await session.send({ prompt: "hello" });
+
+            const [, params] = spy.mock.calls.find(([method]) => method === "session.send")!;
+            expect(params.requestHeaders).toBeUndefined();
+            expect(params.headerMergeStrategy).toBeUndefined();
+            spy.mockRestore();
+        });
+
+        it("sends provider headers via updateProvider RPC call", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const session = await client.createSession({ onPermissionRequest: approveAll });
+            const spy = vi
+                .spyOn((client as any).connection!, "sendRequest")
+                .mockImplementation(async (method: string) => {
+                    if (method === "session.provider.update") return {};
+                    throw new Error(`Unexpected method: ${method}`);
+                });
+
+            await session.updateProvider({
+                headers: { Authorization: "Bearer token123", "X-Custom": "val" },
+            });
+
+            expect(spy).toHaveBeenCalledWith(
+                "session.provider.update",
+                expect.objectContaining({
+                    sessionId: session.sessionId,
+                    provider: {
+                        headers: { Authorization: "Bearer token123", "X-Custom": "val" },
+                    },
+                })
+            );
+            spy.mockRestore();
+        });
+
+        it("sends updateProvider with empty headers", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const session = await client.createSession({ onPermissionRequest: approveAll });
+            const spy = vi
+                .spyOn((client as any).connection!, "sendRequest")
+                .mockImplementation(async (method: string) => {
+                    if (method === "session.provider.update") return {};
+                    throw new Error(`Unexpected method: ${method}`);
+                });
+
+            await session.updateProvider({ headers: {} });
+
+            expect(spy).toHaveBeenCalledWith(
+                "session.provider.update",
+                expect.objectContaining({
+                    provider: { headers: {} },
+                })
+            );
+            spy.mockRestore();
+        });
+
+        it("sends both requestHeaders and headerMergeStrategy together", async () => {
+            const client = new CopilotClient();
+            await client.start();
+            onTestFinished(() => client.forceStop());
+
+            const session = await client.createSession({ onPermissionRequest: approveAll });
+            const spy = vi
+                .spyOn((client as any).connection!, "sendRequest")
+                .mockImplementation(async (method: string) => {
+                    if (method === "session.send") return { messageId: "msg-1" };
+                    throw new Error(`Unexpected method: ${method}`);
+                });
+
+            await session.send({
+                prompt: "test",
+                requestHeaders: { "X-Request-Id": "req-123" },
+                headerMergeStrategy: "merge",
+            });
+
+            expect(spy).toHaveBeenCalledWith(
+                "session.send",
+                expect.objectContaining({
+                    requestHeaders: { "X-Request-Id": "req-123" },
+                    headerMergeStrategy: "merge",
+                    sessionId: session.sessionId,
+                    prompt: "test",
+                })
+            );
+            spy.mockRestore();
+        });
+    });
 });

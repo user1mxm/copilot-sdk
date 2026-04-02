@@ -493,6 +493,26 @@ async with await client.create_session(
 > - For Azure OpenAI endpoints (`*.openai.azure.com`), you **must** use `type: "azure"`, not `type: "openai"`.
 > - The `base_url` should be just the host (e.g., `https://my-resource.openai.azure.com`). Do **not** include `/openai/v1` in the URL - the SDK handles path construction automatically.
 
+### Custom Headers
+
+You can attach custom HTTP headers to outbound model requests — useful for API gateways, proxy authentication, or tenant routing:
+
+```python
+session = await client.create_session(
+    model="gpt-4.1",
+    provider={
+        "type": "openai",
+        "base_url": "https://my-gateway.example.com/v1",
+        "api_key": os.environ["OPENAI_API_KEY"],
+        "headers": {
+            "Ocp-Apim-Subscription-Key": "${APIM_KEY}",
+        },
+    },
+)
+```
+
+Per-turn headers and merge strategies are also supported. See the [Custom Headers](docs/auth/byok.md#custom-headers) section in the BYOK guide for full details.
+
 ## Telemetry
 
 The SDK supports OpenTelemetry for distributed tracing. Provide a `telemetry` config to enable trace export and automatic W3C Trace Context propagation.

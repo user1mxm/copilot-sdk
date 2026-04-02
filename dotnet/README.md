@@ -596,6 +596,29 @@ var session = await client.CreateSessionAsync(new SessionConfig
 });
 ```
 
+### Custom Headers
+
+You can attach custom HTTP headers to outbound model requests — useful for API gateways, proxy authentication, or tenant routing:
+
+```csharp
+var session = await client.CreateSessionAsync(new SessionConfig
+{
+    Model = "gpt-4.1",
+    Provider = new ProviderConfig
+    {
+        Type = "openai",
+        BaseUrl = "https://my-gateway.example.com/v1",
+        ApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY"),
+        Headers = new Dictionary<string, string>
+        {
+            ["Ocp-Apim-Subscription-Key"] = "${APIM_KEY}",
+        },
+    },
+});
+```
+
+Per-turn headers and merge strategies are also supported. See the [Custom Headers](docs/auth/byok.md#custom-headers) section in the BYOK guide for full details.
+
 ## Telemetry
 
 The SDK supports OpenTelemetry for distributed tracing. Provide a `Telemetry` config to enable trace export and automatic W3C Trace Context propagation.

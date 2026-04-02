@@ -23,6 +23,7 @@ import type {
     PermissionHandler,
     PermissionRequest,
     PermissionRequestResult,
+    ProviderConfig,
     ReasoningEffort,
     SectionTransformFn,
     SessionCapabilities,
@@ -183,6 +184,8 @@ export class CopilotSession {
             prompt: options.prompt,
             attachments: options.attachments,
             mode: options.mode,
+            requestHeaders: options.requestHeaders,
+            headerMergeStrategy: options.headerMergeStrategy,
         });
 
         return (response as { messageId: string }).messageId;
@@ -1008,6 +1011,24 @@ export class CopilotSession {
     async abort(): Promise<void> {
         await this.connection.sendRequest("session.abort", {
             sessionId: this.sessionId,
+        });
+    }
+
+    /**
+     * Update the provider configuration for this session.
+     * This allows changing headers, authentication, or other provider settings between turns.
+     *
+     * @param provider - Partial provider configuration to update
+     *
+     * @example
+     * ```typescript
+     * await session.updateProvider({ headers: { "X-Custom": "value" } });
+     * ```
+     */
+    async updateProvider(provider: Partial<ProviderConfig>): Promise<void> {
+        await this.connection.sendRequest("session.provider.update", {
+            sessionId: this.sessionId,
+            provider,
         });
     }
 

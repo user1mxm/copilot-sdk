@@ -1278,7 +1278,20 @@ export interface ProviderConfig {
          */
         apiVersion?: string;
     };
+
+    /**
+     * Custom HTTP headers to include in all outbound requests to the provider.
+     * Supports env var expansion (e.g. ${VAR}, ${VAR:-default}).
+     */
+    headers?: Record<string, string>;
 }
+
+/**
+ * Strategy for merging per-turn request headers with session-level provider headers.
+ * - "override": Per-turn headers completely replace session-level headers (default)
+ * - "merge": Per-turn headers are merged with session-level headers; per-turn wins on conflicts
+ */
+export type HeaderMergeStrategy = "override" | "merge";
 
 /**
  * Options for sending a message to a session
@@ -1327,6 +1340,17 @@ export interface MessageOptions {
      * - "immediate": Send immediately
      */
     mode?: "enqueue" | "immediate";
+
+    /**
+     * Custom HTTP headers to include in outbound model requests for this turn only.
+     */
+    requestHeaders?: Record<string, string>;
+
+    /**
+     * Strategy for merging per-turn requestHeaders with session-level provider headers.
+     * Defaults to "override".
+     */
+    headerMergeStrategy?: HeaderMergeStrategy;
 }
 
 /**

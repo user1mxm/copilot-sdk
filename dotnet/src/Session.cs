@@ -162,6 +162,8 @@ public sealed partial class CopilotSession : IAsyncDisposable
             Prompt = options.Prompt,
             Attachments = options.Attachments,
             Mode = options.Mode,
+            RequestHeaders = options.RequestHeaders,
+            HeaderMergeStrategy = options.HeaderMergeStrategy,
             Traceparent = traceparent,
             Tracestate = tracestate
         };
@@ -784,6 +786,20 @@ public sealed partial class CopilotSession : IAsyncDisposable
     }
 
     /// <summary>
+    /// Update the provider configuration for this session.
+    /// This allows changing headers, authentication, or other provider settings between turns.
+    /// </summary>
+    /// <param name="provider">The provider configuration to update.</param>
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    public async Task UpdateProviderAsync(ProviderConfig provider, CancellationToken cancellationToken = default)
+    {
+        await InvokeRpcAsync<object>(
+            "session.provider.update",
+            [new SessionProviderUpdateRequest { SessionId = SessionId, Provider = provider }],
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Changes the model for this session.
     /// The new model takes effect for the next message. Conversation history is preserved.
     /// </summary>
@@ -906,6 +922,8 @@ public sealed partial class CopilotSession : IAsyncDisposable
         public string Prompt { get; init; } = string.Empty;
         public List<UserMessageDataAttachmentsItem>? Attachments { get; init; }
         public string? Mode { get; init; }
+        public Dictionary<string, string>? RequestHeaders { get; init; }
+        public string? HeaderMergeStrategy { get; init; }
         public string? Traceparent { get; init; }
         public string? Tracestate { get; init; }
     }
@@ -935,6 +953,12 @@ public sealed partial class CopilotSession : IAsyncDisposable
         public string SessionId { get; init; } = string.Empty;
     }
 
+    internal record SessionProviderUpdateRequest
+    {
+        public string SessionId { get; init; } = string.Empty;
+        public ProviderConfig Provider { get; init; } = new();
+    }
+
     [JsonSourceGenerationOptions(
         JsonSerializerDefaults.Web,
         AllowOutOfOrderMetadataProperties = true,
@@ -946,6 +970,7 @@ public sealed partial class CopilotSession : IAsyncDisposable
     [JsonSerializable(typeof(SendMessageResponse))]
     [JsonSerializable(typeof(SessionAbortRequest))]
     [JsonSerializable(typeof(SessionDestroyRequest))]
+    [JsonSerializable(typeof(SessionProviderUpdateRequest))]
     [JsonSerializable(typeof(UserMessageDataAttachmentsItem))]
     [JsonSerializable(typeof(PreToolUseHookInput))]
     [JsonSerializable(typeof(PreToolUseHookOutput))]

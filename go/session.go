@@ -123,12 +123,14 @@ func newSession(sessionID string, client *jsonrpc2.Client, workspacePath string)
 func (s *Session) Send(ctx context.Context, options MessageOptions) (string, error) {
 	traceparent, tracestate := getTraceContext(ctx)
 	req := sessionSendRequest{
-		SessionID:   s.SessionID,
-		Prompt:      options.Prompt,
-		Attachments: options.Attachments,
-		Mode:        options.Mode,
-		Traceparent: traceparent,
-		Tracestate:  tracestate,
+		SessionID:           s.SessionID,
+		Prompt:              options.Prompt,
+		Attachments:         options.Attachments,
+		Mode:                options.Mode,
+		RequestHeaders:      options.RequestHeaders,
+		HeaderMergeStrategy: options.HeaderMergeStrategy,
+		Traceparent:         traceparent,
+		Tracestate:          tracestate,
 	}
 
 	result, err := s.client.Request("session.send", req)
@@ -837,6 +839,23 @@ func (s *Session) SetModel(ctx context.Context, model string, opts *SetModelOpti
 		return fmt.Errorf("failed to set model: %w", err)
 	}
 
+	return nil
+}
+
+// UpdateProvider updates the provider configuration for this session.
+// This allows changing headers, authentication, or other provider settings between turns.
+func (s *Session) UpdateProvider(ctx context.Context, provider ProviderConfig) error {
+	req := struct {
+		SessionID string         `json:"sessionId"`
+		Provider  ProviderConfig `json:"provider"`
+	}{
+		SessionID: s.SessionID,
+		Provider:  provider,
+	}
+	_, err := s.client.Request("session.provider.update", req)
+	if err != nil {
+		return fmt.Errorf("failed to update provider: %w", err)
+	}
 	return nil
 }
 
