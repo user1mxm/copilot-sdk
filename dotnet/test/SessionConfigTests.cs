@@ -20,7 +20,7 @@ public class SessionConfigTests(E2ETestFixture fixture, ITestOutputHelper output
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
 
     [Fact]
-    public async Task VisionDisabledThenEnabledViaSetModel()
+    public async Task Vision_Disabled_Then_Enabled_Via_SetModel()
     {
         await File.WriteAllBytesAsync(Path.Combine(Ctx.WorkDir, "test.png"), Png1X1);
 
@@ -60,7 +60,7 @@ public class SessionConfigTests(E2ETestFixture fixture, ITestOutputHelper output
     }
 
     [Fact]
-    public async Task VisionEnabledThenDisabledViaSetModel()
+    public async Task Vision_Enabled_Then_Disabled_Via_SetModel()
     {
         await File.WriteAllBytesAsync(Path.Combine(Ctx.WorkDir, "test.png"), Png1X1);
 
