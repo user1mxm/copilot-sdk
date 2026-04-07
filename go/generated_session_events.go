@@ -34,7 +34,7 @@ type SessionEvent struct {
 	//
 	// Error details for timeline display including message and optional diagnostic information
 	//
-	// Payload indicating the agent is idle; includes any background tasks still in flight
+	// Payload indicating the session is fully idle with no background tasks in flight
 	//
 	// Session title change payload containing the new display title
 	//
@@ -186,7 +186,7 @@ type SessionEvent struct {
 //
 // # Error details for timeline display including message and optional diagnostic information
 //
-// Payload indicating the agent is idle; includes any background tasks still in flight
+// # Payload indicating the session is fully idle with no background tasks in flight
 //
 // # Session title change payload containing the new display title
 //
@@ -387,8 +387,6 @@ type Data struct {
 	URL *string `json:"url,omitempty"`
 	// True when the preceding agentic loop was cancelled via abort signal
 	Aborted *bool `json:"aborted,omitempty"`
-	// Background tasks still running when the agent became idle
-	BackgroundTasks *BackgroundTasks `json:"backgroundTasks,omitempty"`
 	// The new display title for the session
 	Title *string `json:"title,omitempty"`
 	// Category of informational message (e.g., "notification", "timing", "context_window",
@@ -871,7 +869,7 @@ type Data struct {
 	// Array of resolved skill metadata
 	Skills []Skill `json:"skills,omitempty"`
 	// Array of loaded custom agent metadata
-	Agents []DataAgent `json:"agents,omitempty"`
+	Agents []Agent `json:"agents,omitempty"`
 	// Fatal errors from agent loading
 	Errors []string `json:"errors,omitempty"`
 	// Non-fatal warnings from agent loading
@@ -884,7 +882,7 @@ type Data struct {
 	Extensions []Extension `json:"extensions,omitempty"`
 }
 
-type DataAgent struct {
+type Agent struct {
 	// Description of what the agent does
 	Description string `json:"description"`
 	// Human-readable display name
@@ -979,32 +977,6 @@ type Start struct {
 	Character float64 `json:"character"`
 	// Start line number (0-based)
 	Line float64 `json:"line"`
-}
-
-// Background tasks still running when the agent became idle
-type BackgroundTasks struct {
-	// Currently running background agents
-	Agents []BackgroundTasksAgent `json:"agents"`
-	// Currently running background shell commands
-	Shells []Shell `json:"shells"`
-}
-
-// A background agent task
-type BackgroundTasksAgent struct {
-	// Unique identifier of the background agent
-	AgentID string `json:"agentId"`
-	// Type of the background agent
-	AgentType string `json:"agentType"`
-	// Human-readable description of the agent task
-	Description *string `json:"description,omitempty"`
-}
-
-// A background shell command
-type Shell struct {
-	// Human-readable description of the shell command
-	Description *string `json:"description,omitempty"`
-	// Unique identifier of the background shell
-	ShellID string `json:"shellId"`
 }
 
 // Aggregate code change metrics for the session

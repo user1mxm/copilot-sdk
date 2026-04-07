@@ -509,7 +509,7 @@ class ServerValue:
     command: str | None = None
     cwd: str | None = None
     env: dict[str, str] | None = None
-    filter_mapping: dict[str | FilterMappingEnum] | FilterMappingEnum | None = None
+    filter_mapping: dict[str, FilterMappingEnum] | FilterMappingEnum | None = None
     is_default_server: bool | None = None
     timeout: float | None = None
     tools: list[str] | None = None
@@ -595,7 +595,7 @@ class MCPConfigAddParamsConfig:
     command: str | None = None
     cwd: str | None = None
     env: dict[str, str] | None = None
-    filter_mapping: dict[str | FilterMappingEnum] | FilterMappingEnum | None = None
+    filter_mapping: dict[str, FilterMappingEnum] | FilterMappingEnum | None = None
     is_default_server: bool | None = None
     timeout: float | None = None
     tools: list[str] | None = None
@@ -686,7 +686,7 @@ class MCPConfigUpdateParamsConfig:
     command: str | None = None
     cwd: str | None = None
     env: dict[str, str] | None = None
-    filter_mapping: dict[str | FilterMappingEnum] | FilterMappingEnum | None = None
+    filter_mapping: dict[str, FilterMappingEnum] | FilterMappingEnum | None = None
     is_default_server: bool | None = None
     timeout: float | None = None
     tools: list[str] | None = None

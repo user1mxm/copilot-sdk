@@ -270,44 +270,9 @@ export type SessionEvent =
       ephemeral: true;
       type: "session.idle";
       /**
-       * Payload indicating the agent is idle; includes any background tasks still in flight
+       * Payload indicating the session is fully idle with no background tasks in flight
        */
       data: {
-        /**
-         * Background tasks still running when the agent became idle
-         */
-        backgroundTasks?: {
-          /**
-           * Currently running background agents
-           */
-          agents: {
-            /**
-             * Unique identifier of the background agent
-             */
-            agentId: string;
-            /**
-             * Type of the background agent
-             */
-            agentType: string;
-            /**
-             * Human-readable description of the agent task
-             */
-            description?: string;
-          }[];
-          /**
-           * Currently running background shell commands
-           */
-          shells: {
-            /**
-             * Unique identifier of the background shell
-             */
-            shellId: string;
-            /**
-             * Human-readable description of the shell command
-             */
-            description?: string;
-          }[];
-        };
         /**
          * True when the preceding agentic loop was cancelled via abort signal
          */

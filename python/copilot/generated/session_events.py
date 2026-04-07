@@ -97,7 +97,7 @@ class AgentMode(Enum):
 
 
 @dataclass
-class DataAgent:
+class Agent:
     description: str
     """Description of what the agent does"""
 
@@ -123,7 +123,7 @@ class DataAgent:
     """Model override for this agent, if set"""
 
     @staticmethod
-    def from_dict(obj: Any) -> 'DataAgent':
+    def from_dict(obj: Any) -> 'Agent':
         assert isinstance(obj, dict)
         description = from_str(obj.get("description"))
         display_name = from_str(obj.get("displayName"))
@@ -133,7 +133,7 @@ class DataAgent:
         tools = from_list(from_str, obj.get("tools"))
         user_invocable = from_bool(obj.get("userInvocable"))
         model = from_union([from_str, from_none], obj.get("model"))
-        return DataAgent(description, display_name, id, name, source, tools, user_invocable, model)
+        return Agent(description, display_name, id, name, source, tools, user_invocable, model)
 
     def to_dict(self) -> dict:
         result: dict = {}
@@ -369,85 +369,6 @@ class Attachment:
             result["data"] = from_union([from_str, from_none], self.data)
         if self.mime_type is not None:
             result["mimeType"] = from_union([from_str, from_none], self.mime_type)
-        return result
-
-
-@dataclass
-class BackgroundTasksAgent:
-    """A background agent task"""
-
-    agent_id: str
-    """Unique identifier of the background agent"""
-
-    agent_type: str
-    """Type of the background agent"""
-
-    description: str | None = None
-    """Human-readable description of the agent task"""
-
-    @staticmethod
-    def from_dict(obj: Any) -> 'BackgroundTasksAgent':
-        assert isinstance(obj, dict)
-        agent_id = from_str(obj.get("agentId"))
-        agent_type = from_str(obj.get("agentType"))
-        description = from_union([from_str, from_none], obj.get("description"))
-        return BackgroundTasksAgent(agent_id, agent_type, description)
-
-    def to_dict(self) -> dict:
-        result: dict = {}
-        result["agentId"] = from_str(self.agent_id)
-        result["agentType"] = from_str(self.agent_type)
-        if self.description is not None:
-            result["description"] = from_union([from_str, from_none], self.description)
-        return result
-
-
-@dataclass
-class Shell:
-    """A background shell command"""
-
-    shell_id: str
-    """Unique identifier of the background shell"""
-
-    description: str | None = None
-    """Human-readable description of the shell command"""
-
-    @staticmethod
-    def from_dict(obj: Any) -> 'Shell':
-        assert isinstance(obj, dict)
-        shell_id = from_str(obj.get("shellId"))
-        description = from_union([from_str, from_none], obj.get("description"))
-        return Shell(shell_id, description)
-
-    def to_dict(self) -> dict:
-        result: dict = {}
-        result["shellId"] = from_str(self.shell_id)
-        if self.description is not None:
-            result["description"] = from_union([from_str, from_none], self.description)
-        return result
-
-
-@dataclass
-class BackgroundTasks:
-    """Background tasks still running when the agent became idle"""
-
-    agents: list[BackgroundTasksAgent]
-    """Currently running background agents"""
-
-    shells: list[Shell]
-    """Currently running background shell commands"""
-
-    @staticmethod
-    def from_dict(obj: Any) -> 'BackgroundTasks':
-        assert isinstance(obj, dict)
-        agents = from_list(BackgroundTasksAgent.from_dict, obj.get("agents"))
-        shells = from_list(Shell.from_dict, obj.get("shells"))
-        return BackgroundTasks(agents, shells)
-
-    def to_dict(self) -> dict:
-        result: dict = {}
-        result["agents"] = from_list(lambda x: to_class(BackgroundTasksAgent, x), self.agents)
-        result["shells"] = from_list(lambda x: to_class(Shell, x), self.shells)
         return result
 
 
@@ -1788,7 +1709,7 @@ class Data:
     
     Error details for timeline display including message and optional diagnostic information
     
-    Payload indicating the agent is idle; includes any background tasks still in flight
+    Payload indicating the session is fully idle with no background tasks in flight
     
     Session title change payload containing the new display title
     
@@ -2007,9 +1928,6 @@ class Data:
     """
     aborted: bool | None = None
     """True when the preceding agentic loop was cancelled via abort signal"""
-
-    background_tasks: BackgroundTasks | None = None
-    """Background tasks still running when the agent became idle"""
 
     title: str | None = None
     """The new display title for the session"""
@@ -2282,7 +2200,7 @@ class Data:
     attachments: list[Attachment] | None = None
     """Files, selections, or GitHub references attached to the message"""
 
-    content: str | dict[str | float | bool | list[str] | str] | None = None
+    content: str | dict[str, float | bool | list[str] | str] | None = None
     """The user's message text as displayed in the timeline
     
     The complete extended thinking text from the model
@@ -2641,7 +2559,7 @@ class Data:
     skills: list[Skill] | None = None
     """Array of resolved skill metadata"""
 
-    agents: list[DataAgent] | None = None
+    agents: list[Agent] | None = None
     """Array of loaded custom agent metadata"""
 
     errors: list[str] | None = None
@@ -2681,7 +2599,6 @@ class Data:
         status_code = from_union([from_int, from_none], obj.get("statusCode"))
         url = from_union([from_str, from_none], obj.get("url"))
         aborted = from_union([from_bool, from_none], obj.get("aborted"))
-        background_tasks = from_union([BackgroundTasks.from_dict, from_none], obj.get("backgroundTasks"))
         title = from_union([from_str, from_none], obj.get("title"))
         info_type = from_union([from_str, from_none], obj.get("infoType"))
         warning_type = from_union([from_str, from_none], obj.get("warningType"))
@@ -2831,13 +2748,13 @@ class Data:
         feedback = from_union([from_str, from_none], obj.get("feedback"))
         selected_action = from_union([from_str, from_none], obj.get("selectedAction"))
         skills = from_union([lambda x: from_list(Skill.from_dict, x), from_none], obj.get("skills"))
-        agents = from_union([lambda x: from_list(DataAgent.from_dict, x), from_none], obj.get("agents"))
+        agents = from_union([lambda x: from_list(Agent.from_dict, x), from_none], obj.get("agents"))
         errors = from_union([lambda x: from_list(from_str, x), from_none], obj.get("errors"))
         warnings = from_union([lambda x: from_list(from_str, x), from_none], obj.get("warnings"))
         servers = from_union([lambda x: from_list(Server.from_dict, x), from_none], obj.get("servers"))
         status = from_union([ServerStatus, from_none], obj.get("status"))
         extensions = from_union([lambda x: from_list(Extension.from_dict, x), from_none], obj.get("extensions"))
-        return Data(already_in_use, context, copilot_version, producer, reasoning_effort, remote_steerable, selected_model, session_id, start_time, version, event_count, resume_time, error_type, message, provider_call_id, stack, status_code, url, aborted, background_tasks, title, info_type, warning_type, new_model, previous_model, previous_reasoning_effort, new_mode, previous_mode, operation, path, handoff_time, host, remote_session_id, repository, source_type, summary, messages_removed_during_truncation, performed_by, post_truncation_messages_length, post_truncation_tokens_in_messages, pre_truncation_messages_length, pre_truncation_tokens_in_messages, token_limit, tokens_removed_during_truncation, events_removed, up_to_event_id, code_changes, conversation_tokens, current_model, current_tokens, error_reason, model_metrics, session_start_time, shutdown_type, system_tokens, tool_definitions_tokens, total_api_duration_ms, total_premium_requests, base_commit, branch, cwd, git_root, head_commit, host_type, is_initial, messages_length, checkpoint_number, checkpoint_path, compaction_tokens_used, error, messages_removed, post_compaction_tokens, pre_compaction_messages_length, pre_compaction_tokens, request_id, success, summary_content, tokens_removed, agent_mode, attachments, content, interaction_id, source, transformed_content, turn_id, intent, reasoning_id, delta_content, total_response_size_bytes, encrypted_content, message_id, output_tokens, parent_tool_call_id, phase, reasoning_opaque, reasoning_text, tool_requests, api_call_id, cache_read_tokens, cache_write_tokens, copilot_usage, cost, duration, initiator, input_tokens, inter_token_latency_ms, model, quota_snapshots, ttft_ms, reason, arguments, tool_call_id, tool_name, mcp_server_name, mcp_tool_name, partial_output, progress_message, is_user_requested, result, tool_telemetry, allowed_tools, description, name, plugin_name, plugin_version, agent_description, agent_display_name, agent_name, duration_ms, total_tokens, total_tool_calls, tools, hook_invocation_id, hook_type, input, output, metadata, role, kind, permission_request, resolved_by_hook, allow_freeform, choices, question, answer, was_freeform, elicitation_source, mode, requested_schema, action, mcp_request_id, server_name, server_url, static_client_config, traceparent, tracestate, command, args, command_name, commands, ui, actions, plan_content, recommended_action, approved, auto_approve_edits, feedback, selected_action, skills, agents, errors, warnings, servers, status, extensions)
+        return Data(already_in_use, context, copilot_version, producer, reasoning_effort, remote_steerable, selected_model, session_id, start_time, version, event_count, resume_time, error_type, message, provider_call_id, stack, status_code, url, aborted, title, info_type, warning_type, new_model, previous_model, previous_reasoning_effort, new_mode, previous_mode, operation, path, handoff_time, host, remote_session_id, repository, source_type, summary, messages_removed_during_truncation, performed_by, post_truncation_messages_length, post_truncation_tokens_in_messages, pre_truncation_messages_length, pre_truncation_tokens_in_messages, token_limit, tokens_removed_during_truncation, events_removed, up_to_event_id, code_changes, conversation_tokens, current_model, current_tokens, error_reason, model_metrics, session_start_time, shutdown_type, system_tokens, tool_definitions_tokens, total_api_duration_ms, total_premium_requests, base_commit, branch, cwd, git_root, head_commit, host_type, is_initial, messages_length, checkpoint_number, checkpoint_path, compaction_tokens_used, error, messages_removed, post_compaction_tokens, pre_compaction_messages_length, pre_compaction_tokens, request_id, success, summary_content, tokens_removed, agent_mode, attachments, content, interaction_id, source, transformed_content, turn_id, intent, reasoning_id, delta_content, total_response_size_bytes, encrypted_content, message_id, output_tokens, parent_tool_call_id, phase, reasoning_opaque, reasoning_text, tool_requests, api_call_id, cache_read_tokens, cache_write_tokens, copilot_usage, cost, duration, initiator, input_tokens, inter_token_latency_ms, model, quota_snapshots, ttft_ms, reason, arguments, tool_call_id, tool_name, mcp_server_name, mcp_tool_name, partial_output, progress_message, is_user_requested, result, tool_telemetry, allowed_tools, description, name, plugin_name, plugin_version, agent_description, agent_display_name, agent_name, duration_ms, total_tokens, total_tool_calls, tools, hook_invocation_id, hook_type, input, output, metadata, role, kind, permission_request, resolved_by_hook, allow_freeform, choices, question, answer, was_freeform, elicitation_source, mode, requested_schema, action, mcp_request_id, server_name, server_url, static_client_config, traceparent, tracestate, command, args, command_name, commands, ui, actions, plan_content, recommended_action, approved, auto_approve_edits, feedback, selected_action, skills, agents, errors, warnings, servers, status, extensions)
 
     def to_dict(self) -> dict:
         result: dict = {}
@@ -2879,8 +2796,6 @@ class Data:
             result["url"] = from_union([from_str, from_none], self.url)
         if self.aborted is not None:
             result["aborted"] = from_union([from_bool, from_none], self.aborted)
-        if self.background_tasks is not None:
-            result["backgroundTasks"] = from_union([lambda x: to_class(BackgroundTasks, x), from_none], self.background_tasks)
         if self.title is not None:
             result["title"] = from_union([from_str, from_none], self.title)
         if self.info_type is not None:
@@ -3180,7 +3095,7 @@ class Data:
         if self.skills is not None:
             result["skills"] = from_union([lambda x: from_list(lambda x: to_class(Skill, x), x), from_none], self.skills)
         if self.agents is not None:
-            result["agents"] = from_union([lambda x: from_list(lambda x: to_class(DataAgent, x), x), from_none], self.agents)
+            result["agents"] = from_union([lambda x: from_list(lambda x: to_class(Agent, x), x), from_none], self.agents)
         if self.errors is not None:
             result["errors"] = from_union([lambda x: from_list(from_str, x), from_none], self.errors)
         if self.warnings is not None:
@@ -3290,7 +3205,7 @@ class SessionEvent:
     
     Error details for timeline display including message and optional diagnostic information
     
-    Payload indicating the agent is idle; includes any background tasks still in flight
+    Payload indicating the session is fully idle with no background tasks in flight
     
     Session title change payload containing the new display title
     

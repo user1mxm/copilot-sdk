@@ -181,7 +181,7 @@ public partial class SessionErrorEvent : SessionEvent
     public required SessionErrorData Data { get; set; }
 }
 
-/// <summary>Payload indicating the agent is idle; includes any background tasks still in flight.</summary>
+/// <summary>Payload indicating the session is fully idle with no background tasks in flight.</summary>
 /// <remarks>Represents the <c>session.idle</c> event.</remarks>
 public partial class SessionIdleEvent : SessionEvent
 {
@@ -1209,14 +1209,9 @@ public partial class SessionErrorData
     public string? Url { get; set; }
 }
 
-/// <summary>Payload indicating the agent is idle; includes any background tasks still in flight.</summary>
+/// <summary>Payload indicating the session is fully idle with no background tasks in flight.</summary>
 public partial class SessionIdleData
 {
-    /// <summary>Background tasks still running when the agent became idle.</summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [JsonPropertyName("backgroundTasks")]
-    public SessionIdleDataBackgroundTasks? BackgroundTasks { get; set; }
-
     /// <summary>True when the preceding agentic loop was cancelled via abort signal.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("aborted")]
@@ -2734,51 +2729,6 @@ public partial class SessionResumeDataContext
     public string? BaseCommit { get; set; }
 }
 
-/// <summary>A background agent task.</summary>
-/// <remarks>Nested data type for <c>SessionIdleDataBackgroundTasksAgentsItem</c>.</remarks>
-public partial class SessionIdleDataBackgroundTasksAgentsItem
-{
-    /// <summary>Unique identifier of the background agent.</summary>
-    [JsonPropertyName("agentId")]
-    public required string AgentId { get; set; }
-
-    /// <summary>Type of the background agent.</summary>
-    [JsonPropertyName("agentType")]
-    public required string AgentType { get; set; }
-
-    /// <summary>Human-readable description of the agent task.</summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-}
-
-/// <summary>A background shell command.</summary>
-/// <remarks>Nested data type for <c>SessionIdleDataBackgroundTasksShellsItem</c>.</remarks>
-public partial class SessionIdleDataBackgroundTasksShellsItem
-{
-    /// <summary>Unique identifier of the background shell.</summary>
-    [JsonPropertyName("shellId")]
-    public required string ShellId { get; set; }
-
-    /// <summary>Human-readable description of the shell command.</summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-}
-
-/// <summary>Background tasks still running when the agent became idle.</summary>
-/// <remarks>Nested data type for <c>SessionIdleDataBackgroundTasks</c>.</remarks>
-public partial class SessionIdleDataBackgroundTasks
-{
-    /// <summary>Currently running background agents.</summary>
-    [JsonPropertyName("agents")]
-    public required SessionIdleDataBackgroundTasksAgentsItem[] Agents { get; set; }
-
-    /// <summary>Currently running background shell commands.</summary>
-    [JsonPropertyName("shells")]
-    public required SessionIdleDataBackgroundTasksShellsItem[] Shells { get; set; }
-}
-
 /// <summary>Repository context for the handed-off session.</summary>
 /// <remarks>Nested data type for <c>SessionHandoffDataRepository</c>.</remarks>
 public partial class SessionHandoffDataRepository
@@ -4232,9 +4182,6 @@ public enum SessionExtensionsLoadedDataExtensionsItemStatus
 [JsonSerializable(typeof(SessionHandoffDataRepository))]
 [JsonSerializable(typeof(SessionHandoffEvent))]
 [JsonSerializable(typeof(SessionIdleData))]
-[JsonSerializable(typeof(SessionIdleDataBackgroundTasks))]
-[JsonSerializable(typeof(SessionIdleDataBackgroundTasksAgentsItem))]
-[JsonSerializable(typeof(SessionIdleDataBackgroundTasksShellsItem))]
 [JsonSerializable(typeof(SessionIdleEvent))]
 [JsonSerializable(typeof(SessionInfoData))]
 [JsonSerializable(typeof(SessionInfoEvent))]
