@@ -848,6 +848,7 @@ export class CopilotClient {
                     description: cmd.description,
                 })),
                 provider: config.provider,
+                modelCapabilities: config.modelCapabilities,
                 requestPermission: true,
                 requestUserInput: !!config.onUserInputRequest,
                 requestElicitation: !!config.onElicitationRequest,

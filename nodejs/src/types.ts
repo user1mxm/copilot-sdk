@@ -1217,6 +1217,7 @@ export type ResumeSessionConfig = Pick<
     | "availableTools"
     | "excludedTools"
     | "provider"
+    | "modelCapabilities"
     | "streaming"
     | "reasoningEffort"
     | "onPermissionRequest"
